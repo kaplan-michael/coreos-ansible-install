@@ -1,0 +1,103 @@
+- name: Install FCOS
+  gather_facts: no
+  hosts: all
+  become: yes
+  tasks:
+#prepare partitons for flatcar
+    - name: Read device information (always use unit when probing)
+      community.general.parted: device=/dev/sda unit=MiB
+      register: sda_info
+
+    - name: Remove all partitions from disk
+      community.general.parted:
+       device: /dev/sda
+       number: '{{ item.num }}'
+       state: absent
+      loop: '{{ sda_info.partitions }}'
+
+
+#    - name: Create DATA partition
+#      community.general.parted:
+#        device: /dev/sda
+#        number: 5
+#        name: DATA
+#        label: gpt
+#        flags: 
+#        state: present
+#        part_end: -100GiB
+#        fs_type: EXT4
+#
+#    - name: Create BIOS-BOOT partition
+#      community.general.parted:
+#        device: /dev/sda
+#        number: 2
+#        name: BIOS-BOOT
+#        label: gpt
+#        flags: bios_grub
+#        state: present
+#        part_start: 100MiB
+#        part_end: 110MiB
+#
+#    - name: Create USR-A partition
+#      community.general.parted:
+#        device: /dev/sda
+#        number: 3
+#        name: USR-A
+#        label: gpt
+#        state: present
+#        part_start: 110MiB
+#        part_end: 1.11GiB
+#        fs_type: ext4
+#
+#    - name: Create USR-B partition
+#      community.general.parted:
+#        device: /dev/sda
+#        number: 4
+#        name: USR-B
+#        label: gpt
+#        state: present
+#        part_start: 1.11GiB
+#        part_end: 2.11GiB
+
+#Install FCOS
+    - name: Copy installer 
+      copy:
+        src: ./coreos-installer
+        dest: /root/coreos-installer
+        mode: '0777'
+
+ #   - name: Copy fcos image
+ #     copy:
+ #       src: ./image/fedora-coreos-32.20201004.3.0-metal.x86_64.raw.xz
+ #       dest: /root/fedora-coreos-32.20201004.3.0-metal.x86_64.raw.xz
+
+    - name: Copy ignition config
+      copy:
+        src: ./ignition.json
+        dest: /root/ignition.json
+
+    
+    - name: Install FCOS to disk
+      command: /root/coreos-installer install /dev/sda -i /root/ignition.json 
+
+    - name: Create DATA partition
+      community.general.parted:
+        device: /dev/sda
+        number: 5
+        name: DATA
+        label: gpt
+        state: present
+        part_start: 50%
+        part_end: 100%
+
+    - name: Create a ext4 filesystem on /dev/sda5 and check disk blocks
+      community.general.filesystem:
+        fstype: ext4
+        dev: /dev/sda5
+        resizefs: yes
+
+
+#    - name: Reboot into Flatcar linux
+#      command: reboot
+        
+   
